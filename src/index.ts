@@ -60,15 +60,45 @@ app.get(
     const { formId } = req.params;
     const query_params: any = req.query;
 
-    const filters: ResponseFiltersType | undefined = query_params.filters
-      ? JSON.parse(query_params.filters)
+    let filters: ResponseFiltersType | string | undefined = query_params.filters
+      ? query_params.filters
       : undefined;
     delete query_params.filters;
+    try {
+      filters = filters ? JSON.parse(filters as string) : undefined;
+    } catch {
+      return res.status(400).json({
+        status: 400,
+        error: "Bad Request",
+        message: "filters param was not valid json.",
+      });
+    }
 
     const offset: number = query_params.offset ? query_params.offset : 0;
     delete query_params.offset;
+    if (isNaN(Number(offset))) {
+      return res.status(400).json({
+        status: 400,
+        error: "Bad Request",
+        message: "offset param needs to be a number.",
+      });
+    }
     const limit: number = query_params.limit ? query_params.limit : 150;
     delete query_params.limit;
+    if (isNaN(Number(limit))) {
+      return res.status(400).json({
+        status: 400,
+        error: "Bad Request",
+        message: "limit param needs to be a number.",
+      });
+    }
+    if (limit < 0 || limit > 150) {
+      return res.status(400).json({
+        status: 400,
+        error: "Bad Request",
+        message: "limit param needs to be between 0 and 150.",
+      });
+    }
 
     // pull data from from Fillout api
     let response: any = null;
@@ -109,11 +139,11 @@ app.get(
         page_offset += page_size;
       }
     } catch (error) {
-      return res.status(500).json({ message: "server error" });
+      return res.status(500).json({ status: 500, error: "server error" });
     }
 
     // filter responses
-    if (filters) {
+    if (typeof filters == "object") {
       const api_response_filtered = filter_response(
         response.responses,
         filters
@@ -125,7 +155,6 @@ app.get(
     }
 
     // add back pagination
-
     response = {
       ...response,
       totalResponses: response.responses.length,
